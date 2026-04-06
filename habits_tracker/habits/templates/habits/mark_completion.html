@@ -1,0 +1,27 @@
+{% extends "habits/base.html" %}
+
+{% block title %}Отметить выполнение{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>✅ Отметить выполнение</h2>
+    <h3>{{ progress.habit.name }}</h3>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <small style="color: red;">{{ field.errors|join:", " }}</small>
+                {% endif %}
+            </div>
+        {% endfor %}
+        
+        <button type="submit" class="btn">Сохранить отметку</button>
+        <a href="{% url 'habits:profile' %}" class="btn btn-secondary">Назад</a>
+    </form>
+</div>
+{% endblock %}

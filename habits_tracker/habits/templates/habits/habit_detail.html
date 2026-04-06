@@ -1,0 +1,40 @@
+{% extends "habits/base.html" %}
+
+{% block title %}{{ habit.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>{{ habit.name }}</h2>
+    
+    <p><strong>Категория:</strong> {{ habit.category|default:"Без категории" }}</p>
+    <p><strong>Частота:</strong> 
+        {% if habit.frequency == 'daily' %}Ежедневно
+        {% elif habit.frequency == 'weekly' %}Еженедельно
+        {% else %}Ежемесячно{% endif %}
+    </p>
+    <p><strong>Описание:</strong></p>
+    <p>{{ habit.description|default:"Нет описания" }}</p>
+    <p><strong>Создал:</strong> {{ habit.created_by.get_full_name|default:habit.created_by.username }}</p>
+    
+    <div style="margin-top: 1rem;">
+        {% if user.is_authenticated %}
+            {% if user_progress %}
+                <p>Вы уже осваиваете эту привычку</p>
+                <p>Статус: 
+                    {% if user_progress.status == 'in_progress' %}В процессе
+                    {% elif user_progress.status == 'completed' %}Освоена!
+                    {% else %}Забыта{% endif %}
+                </p>
+                <p>Текущая серия: {{ user_progress.current_streak }} дней</p>
+                <a href="{% url 'habits:profile' %}" class="btn">Перейти к профилю</a>
+            {% else %}
+                <a href="{% url 'habits:start_habit' habit.id %}" class="btn">Начать осваивать</a>
+            {% endif %}
+        {% else %}
+            <p><a href="{% url 'habits:login' %}">Войдите</a>, чтобы начать осваивать эту привычку</p>
+        {% endif %}
+        
+        <a href="{% url 'habits:habit_list' %}" class="btn btn-secondary">Назад к списку</a>
+    </div>
+</div>
+{% endblock %}

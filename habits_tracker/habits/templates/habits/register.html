@@ -1,0 +1,29 @@
+{% extends "habits/base.html" %}
+
+{% block title %}Регистрация{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Регистрация</h2>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <small style="color: red;">{{ field.errors|join:", " }}</small>
+                {% endif %}
+            </div>
+        {% endfor %}
+        
+        <button type="submit" class="btn">Зарегистрироваться</button>
+    </form>
+    
+    <p style="margin-top: 1rem;">
+        Уже есть аккаунт? <a href="{% url 'habits:login' %}">Войдите</a>
+    </p>
+</div>
+{% endblock %}

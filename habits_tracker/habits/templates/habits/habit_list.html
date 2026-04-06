@@ -1,0 +1,29 @@
+{% extends "habits/base.html" %}
+
+{% block title %}Все привычки{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Все привычки</h2>
+    
+    {% if habits %}
+        <div class="grid">
+            {% for habit in habits %}
+                <div class="card">
+                    <h3>{{ habit.name }}</h3>
+                    <p><strong>Категория:</strong> {{ habit.category|default:"Без категории" }}</p>
+                    <p><strong>Частота:</strong> 
+                        {% if habit.frequency == 'daily' %}Ежедневно
+                        {% elif habit.frequency == 'weekly' %}Еженедельно
+                        {% else %}Ежемесячно{% endif %}
+                    </p>
+                    <p>{{ habit.description|truncatewords:20 }}</p>
+                    <a href="{% url 'habits:habit_detail' habit.id %}" class="btn">Подробнее</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>Пока нет привычек. {% if user.role == 'admin' %}Добавьте первую привычку!{% endif %}</p>
+    {% endif %}
+</div>
+{% endblock %}

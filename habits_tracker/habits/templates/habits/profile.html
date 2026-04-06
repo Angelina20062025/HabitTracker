@@ -1,0 +1,54 @@
+{% extends "habits/base.html" %}
+
+{% block title %}Мой профиль{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Мой профиль</h2>
+    <p><strong>Имя:</strong> {{ user.get_full_name|default:"Не указано" }}</p>
+    <p><strong>Email:</strong> {{ user.email|default:"Не указан" }}</p>
+    <p><strong>Роль:</strong> {% if user.role == 'admin' %}Администратор{% else %}Пользователь{% endif %}</p>
+    <p><strong>Дата регистрации:</strong> {{ user.date_registered|date:"d.m.Y H:i" }}</p>
+    
+    <hr>
+    
+    <h3>В процессе освоения</h3>
+    {% if active_progress %}
+        {% for progress in active_progress %}
+            <div class="card">
+                <h4>{{ progress.habit.name }}</h4>
+                <p>Начато: {{ progress.start_date|date:"d.m.Y" }}</p>
+                <p>Серия: {{ progress.current_streak }} дней</p>
+                <a href="{% url 'habits:mark_completion' progress.id %}" class="btn">Отметить выполнение</a>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Вы еще не начали осваивать ни одной привычки.</p>
+    {% endif %}
+    
+    <h3>🏆 Освоенные привычки</h3>
+    {% if completed_progress %}
+        {% for progress in completed_progress %}
+            <div class="card">
+                <h4>{{ progress.habit.name }}</h4>
+                <p>Завершено: {{ progress.completed_date|date:"d.m.Y" }}</p>
+                <p>Максимальная серия: {{ progress.max_streak }} дней</p>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Пока нет освоенных привычек.</p>
+    {% endif %}
+    
+    <h3>💔 Забытые привычки</h3>
+    {% if abandoned_progress %}
+        {% for progress in abandoned_progress %}
+            <div class="card">
+                <h4>{{ progress.habit.name }}</h4>
+                <p>Было начато: {{ progress.start_date|date:"d.m.Y" }}</p>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Нет забытых привычек.</p>
+    {% endif %}
+</div>
+{% endblock %}
