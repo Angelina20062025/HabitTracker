@@ -27,5 +27,7 @@ urlpatterns = [
     path('habit/<int:habit_id>/start/', views.start_habit, name='start_habit'),
 
     #Отметить выполнение
-    path('progress/<int:progress_id>/complete/', views.mark_completion, name='mark_completion'),
+    path('progress/<int:progress_id>/mark/', views.mark_completion, name='mark_completion'),
+    path('progress/<int:progress_id>/reactivate/', views.reactivate_habit, name='reactivate_habit'),
+    path('progress/<int:progress_id>/complete/', views.complete_habit, name='complete_habit'),
 ]

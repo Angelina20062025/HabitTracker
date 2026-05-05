@@ -18,8 +18,10 @@
             <div class="card">
                 <h4>{{ progress.habit.name }}</h4>
                 <p>Начато: {{ progress.start_date|date:"d.m.Y" }}</p>
-                <p>Серия: {{ progress.current_streak }} дней</p>
-                <a href="{% url 'habits:mark_completion' progress.id %}" class="btn">Отметить выполнение</a>
+                <p>Всего раз: {{ progress.current_streak }} раз</p>
+                <p>Серия (периодов подряд): {{ progress.current_day_streak }}</p>
+                <a href="{% url 'habits:mark_completion' progress.id %}" class="btn">✅ Отметить выполнение</a>
+                <a href="{% url 'habits:complete_habit' progress.id %}" class="btn">Отметить как освоенную</a>
             </div>
         {% endfor %}
     {% else %}
@@ -27,17 +29,19 @@
     {% endif %}
     
     <h3>🏆 Освоенные привычки</h3>
-    {% if completed_progress %}
-        {% for progress in completed_progress %}
-            <div class="card">
-                <h4>{{ progress.habit.name }}</h4>
-                <p>Завершено: {{ progress.completed_date|date:"d.m.Y" }}</p>
-                <p>Максимальная серия: {{ progress.max_streak }} дней</p>
-            </div>
-        {% endfor %}
-    {% else %}
-        <p>Пока нет освоенных привычек.</p>
-    {% endif %}
+{% if completed_progress %}
+    {% for progress in completed_progress %}
+        <div class="card">
+            <h4>{{ progress.habit.name }}</h4>
+            <p>Завершено: {{ progress.completed_date|date:"d.m.Y" }}</p>
+            <p>Максимальная серия: {{ progress.max_streak }} раз(а) подряд,
+                {{ progress.max_day_streak }} периодов подряд</p>
+            <a href="{% url 'habits:reactivate_habit' progress.id %}" class="btn btn-secondary">↺ Вернуть в процесс</a>
+        </div>
+    {% endfor %}
+{% else %}
+    <p>Пока нет освоенных привычек.</p>
+{% endif %}
     
     <h3>💔 Забытые привычки</h3>
     {% if abandoned_progress %}

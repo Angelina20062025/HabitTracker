@@ -18,9 +18,34 @@
                 {% endif %}
             </div>
         {% endfor %}
-        
+
         <button type="submit" class="btn">Сохранить</button>
         <a href="{% url 'habits:habit_list' %}" class="btn btn-secondary">Отмена</a>
     </form>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const frequencySelect = document.getElementById('id_frequency');
+        const weekdaysField = document.getElementById('id_weekdays');
+
+        if (!frequencySelect || !weekdaysField) return;
+
+        const weekdaysContainer = weekdaysField.closest('.form-group');
+
+        function toggleWeekdays() {
+            if (frequencySelect.value === 'daily') {
+                weekdaysContainer.style.display = 'none';
+
+                const checkboxes = weekdaysContainer.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+            } else {
+                weekdaysContainer.style.display = 'block';
+            }
+        }
+
+        frequencySelect.addEventListener('change', toggleWeekdays);
+        toggleWeekdays();
+    });
+</script>
 {% endblock %}

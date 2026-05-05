@@ -13,9 +13,9 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Habit)
 class HabitAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'frequency', 'weekdays', 'created_by', 'created_at']
+    list_display = ['name', 'category', 'frequency', 'target_count', 'weekdays', 'created_by', 'created_at']
     list_filter = ['frequency', 'category', 'created_at']
-    search_fields = ['name', 'description', 'category', 'frequency', 'weekdays', 'created_by']
+    search_fields = ['name', 'description', 'category', 'frequency', 'target_count', 'weekdays', 'created_by']
 
 
 @admin.register(HabitProgress)

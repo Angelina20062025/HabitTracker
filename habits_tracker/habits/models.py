@@ -58,6 +58,12 @@ class Habit(models.Model):
         verbose_name='Частота выполнения'
     )
 
+    target_count = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Целевое количество выполнений',
+        help_text='Сколько раз нужно выполнить привычку за период'
+    )
+
     # Связь с пользователем
     created_by = models.ForeignKey(
         User,
@@ -129,6 +135,8 @@ class HabitProgress(models.Model):
     )
     current_streak = models.PositiveIntegerField(default=0, verbose_name='Текущая серия')
     max_streak = models.PositiveIntegerField(default=0, verbose_name='Максимальная серия')
+    current_day_streak = models.PositiveIntegerField(default=0, verbose_name='Текущая серия (дни)')
+    max_day_streak = models.PositiveIntegerField(default=0, verbose_name='Максимальная серия (дни)')
 
     # Дата завершения
     completed_date = models.DateTimeField(blank=True, null=True, verbose_name='Дата завершения')
@@ -153,6 +161,111 @@ class HabitProgress(models.Model):
             self.current_streak = 0
         self.save()
 
+    def update_period_streak(self, completion_date):
+        """
+        Обновление серии. ВЫЗЫВАТЬ ТОЛЬКО КОГДА ЛИМИТ ДОСТИГНУТ!
+        """
+        from datetime import timedelta
+
+        # Определяем начало и конец текущего периода
+        if self.habit.frequency == 'daily':
+            period_start = completion_date
+            period_end = completion_date
+        elif self.habit.frequency == 'weekly':
+            period_start = completion_date - timedelta(days=completion_date.weekday())
+            period_end = period_start + timedelta(days=6)
+        else:  # monthly
+            period_start = completion_date.replace(day=1)
+            next_month = period_start.replace(
+                month=period_start.month + 1) if period_start.month < 12 else period_start.replace(
+                year=period_start.year + 1, month=1)
+            period_end = next_month - timedelta(days=1)
+
+        # Считаем выполнения за период
+        completions_count = HabitCompletion.objects.filter(
+            habit_progress=self,
+            completion_date__range=[period_start, period_end],
+            status=True
+        ).count()
+
+        target = self.habit.target_count
+
+        # Проверяем, достигнут ли лимит
+        if completions_count >= target:
+            # Цель достигнута - увеличиваем серию
+            self.current_day_streak += 1
+            if self.current_day_streak > self.max_day_streak:
+                self.max_day_streak = self.current_day_streak
+        # Если цель не достигнута - НЕ СБРАСЫВАЕМ сразу!
+        # Сброс будет происходить, когда начнётся НОВЫЙ период, а в старом цель не достигнута
+
+        self.save()
+
+    def check_and_update_streak_for_previous_period(self, current_date):
+        """
+        Проверяет предыдущий период и сбрасывает серию, если цель не была достигнута
+        Вызывать при первой отметке в новом периоде
+        """
+        from datetime import timedelta
+
+        # Определяем предыдущий период
+        if self.habit.frequency == 'daily':
+            previous_period = current_date - timedelta(days=1)
+            period_start = previous_period
+            period_end = previous_period
+        elif self.habit.frequency == 'weekly':
+            current_week_start = current_date - timedelta(days=current_date.weekday())
+            previous_period_start = current_week_start - timedelta(days=7)
+            period_start = previous_period_start
+            period_end = previous_period_start + timedelta(days=6)
+        else:  # monthly
+            # Первый день текущего месяца
+            current_month_start = current_date.replace(day=1)
+            # Последний день предыдущего месяца
+            period_end = current_month_start - timedelta(days=1)
+            period_start = period_end.replace(day=1)
+
+        completions_count = HabitCompletion.objects.filter(
+            habit_progress=self,
+            completion_date__range=[period_start, period_end],
+            status=True
+        ).count()
+
+        target = self.habit.target_count
+
+        if completions_count < target:
+
+            self.current_day_streak = 0
+            self.save()
+
+    def get_completion_count_for_period(self, date):
+        """
+        Возвращает количество выполнений привычки за период
+        (день/неделю/месяц в зависимости от частоты)
+        """
+        from datetime import timedelta
+
+        if self.habit.frequency == 'daily':
+            start_date = date
+            end_date = date
+        elif self.habit.frequency == 'weekly':
+            # начало недели (понедельник)
+            start_date = date - timedelta(days=date.weekday())
+            end_date = start_date + timedelta(days=6)
+        else:  # monthly
+            start_date = date.replace(day=1)
+            # последний день месяца
+            next_month = start_date.replace(
+                month=start_date.month + 1) if start_date.month < 12 else start_date.replace(year=start_date.year + 1,
+                                                                                             month=1)
+            end_date = next_month - timedelta(days=1)
+
+        return HabitCompletion.objects.filter(
+            habit_progress=self,
+            completion_date__range=[start_date, end_date],
+            status=True
+        ).count()
+
 
 class HabitCompletion(models.Model):
     # Модель выполнения привычки
@@ -170,7 +283,7 @@ class HabitCompletion(models.Model):
         verbose_name = 'Выполнение привычки'
         verbose_name_plural = 'Выполнения привычек'
         ordering = ['-completion_date']
-        unique_together = ['habit_progress', 'completion_date']
+        # unique_together = ['habit_progress', 'completion_date']
 
     def __str__(self):
         return f"{self.habit_progress.habit.name} - {self.completion_date} - {'Выполнено' if self.status else 'Не выполнено'}"

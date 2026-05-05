@@ -12,6 +12,22 @@
         {% elif habit.frequency == 'weekly' %}Еженедельно
         {% else %}Ежемесячно{% endif %}
     </p>
+    <p><strong>Нужно выполнить:</strong> {{ habit.target_count }}
+   {% if habit.frequency == 'daily' %}раз в день
+   {% elif habit.frequency == 'weekly' %}раз в неделю
+   {% else %}раз в месяц{% endif %}
+</p>
+    {% if habit.frequency != 'daily' and habit.weekdays %}
+    <p><strong>Дни выполнения:</strong>
+        {% if 'mon' in habit.weekdays %}Пн, {% endif %}
+        {% if 'tue' in habit.weekdays %}Вт, {% endif %}
+        {% if 'wed' in habit.weekdays %}Ср, {% endif %}
+        {% if 'thu' in habit.weekdays %}Чт, {% endif %}
+        {% if 'fri' in habit.weekdays %}Пт, {% endif %}
+        {% if 'sat' in habit.weekdays %}Сб, {% endif %}
+        {% if 'sun' in habit.weekdays %}Вс{% endif %}
+    </p>
+{% endif %}
     <p><strong>Описание:</strong></p>
     <p>{{ habit.description|default:"Нет описания" }}</p>
     <p><strong>Создал:</strong> {{ habit.created_by.get_full_name|default:habit.created_by.username }}</p>
@@ -25,7 +41,9 @@
                     {% elif user_progress.status == 'completed' %}Освоена!
                     {% else %}Забыта{% endif %}
                 </p>
-                <p>Текущая серия: {{ user_progress.current_streak }} дней</p>
+                <p>Текущая серия:</p>
+                <p>Всего {{ user_progress.current_streak }} раз(а)</p>
+                <p>Периодов подряд: {{ user_progress.current_day_streak }}</p>
                 <a href="{% url 'habits:profile' %}" class="btn">Перейти к профилю</a>
             {% else %}
                 <a href="{% url 'habits:start_habit' habit.id %}" class="btn">Начать осваивать</a>

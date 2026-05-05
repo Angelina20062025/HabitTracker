@@ -6,6 +6,7 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.db import models
 
 from .models import User, Habit, HabitProgress, HabitCompletion
 from .forms import UserRegistrationForm, HabitForm, HabitCompletionForm
@@ -15,7 +16,13 @@ def habit_list(request):
     """
     Главная страница со списком всех привычек
     """
-    habits = Habit.objects.all().order_by('-created_at')
+    if request.user.is_authenticated:
+        habits = Habit.objects.filter(
+            models.Q(created_by=request.user) |  # свои привычки
+            models.Q(created_by__role='admin')  # привычки админа
+        ).order_by('-created_at')
+    else:
+        habits = Habit.objects.filter(created_by__role='admin').order_by('-created_at')
 
     context = {
         'habits': habits,
@@ -105,6 +112,35 @@ def profile(request):
 
 
 @login_required
+def reactivate_habit(request, progress_id):
+    progress = get_object_or_404(HabitProgress, id=progress_id, user=request.user)
+
+    if progress.status == 'completed':
+        progress.status = 'in_progress'
+        progress.completed_date = None
+        progress.save()
+        messages.success(request, f'Привычка "{progress.habit.name}" возвращена в процесс освоения')
+    else:
+        messages.warning(request, 'Эта привычка не была освоена')
+
+    return redirect('habits:profile')
+
+
+@login_required
+def complete_habit(request, progress_id):
+    progress = get_object_or_404(HabitProgress, id=progress_id, user=request.user)
+
+    if progress.status == 'in_progress':
+        progress.status = 'completed'
+        progress.completed_date = timezone.now()
+        progress.save()
+        messages.success(request, f'Поздравляем! Вы освоили привычку "{progress.habit.name}"')
+    else:
+        messages.warning(request, 'Эта привычка уже освоена или забыта')
+
+    return redirect('habits:profile')
+
+@login_required
 def habit_create(request):
     """
     Добавление новой привычки (доступно только администраторам)
@@ -127,7 +163,14 @@ def habit_detail(request, habit_id):
     """
     Детальная страница привычки
     """
-    habit = get_object_or_404(Habit, id=habit_id)
+    if request.user.is_authenticated:
+        habit = get_object_or_404(
+            Habit,
+            models.Q(created_by=request.user) | models.Q(created_by__role='admin'),
+            id=habit_id
+        )
+    else:
+        habit = get_object_or_404(Habit, created_by__role='admin', id=habit_id)
 
     # Проверяем, начал ли текущий пользователь осваивать эту привычку
     user_progress = None
@@ -175,6 +218,8 @@ def mark_completion(request, progress_id):
     """
     Отметить выполнение привычки
     """
+    from datetime import timedelta
+
     progress = get_object_or_404(HabitProgress, id=progress_id, user=request.user)
 
     if request.method == 'POST':
@@ -184,37 +229,69 @@ def mark_completion(request, progress_id):
             status = form.cleaned_data['status']
             note = form.cleaned_data['note']
 
-            # Проверяем, не было ли уже отметки за этот день
-            existing = HabitCompletion.objects.filter(
-                habit_progress=progress,
-                completion_date=completion_date
-            ).first()
+            # Проверка, разрешен ли день недели
+            if not progress.habit.is_allowed_day(completion_date):
+                messages.error(request,
+                               f'Эта привычка выполняется только в определенные дни недели. {completion_date} не подходит.')
+                return redirect('habits:profile')
 
-            if existing:
-                messages.warning(request, f'Отметка за {completion_date} уже существует')
-            else:
-                if not progress.habit.is_allowed_day(completion_date):
-                    messages.error(request, f'Эта привычка выполняется только в определенные дни недели. {completion_date} не подходит.')
-                    return redirect('habits:profile')
-
-                completion = HabitCompletion.objects.create(
-                    habit_progress=progress,
-                    completion_date=completion_date,
-                    status=status,
-                    note=note
-                )
-
-                # Обновляем серию
-                progress.update_streak(status)
-
-                # Если статус "Освоена" и это последняя отметка, обновляем статус
-                if status and progress.current_streak >= 7:  # Пример: 7 дней подряд = освоено
-                    progress.status = 'completed'
-                    progress.completed_date = timezone.now()
-                    progress.save()
-                    messages.success(request, f'Поздравляем! Вы освоили привычку "{progress.habit.name}"!')
+            # Определяем текущий период
+            if progress.habit.frequency == 'daily':
+                period_start = completion_date
+                period_end = completion_date
+            elif progress.habit.frequency == 'weekly':
+                period_start = completion_date - timedelta(days=completion_date.weekday())
+                period_end = period_start + timedelta(days=6)
+            else:  # monthly
+                period_start = completion_date.replace(day=1)
+                if period_start.month == 12:
+                    next_month = period_start.replace(year=period_start.year + 1, month=1)
                 else:
-                    messages.success(request, f'Отметка за {completion_date} сохранена!')
+                    next_month = period_start.replace(month=period_start.month + 1)
+                period_end = next_month - timedelta(days=1)
+
+            # Проверяем, достигнут ли лимит за текущий период
+            completed_count = HabitCompletion.objects.filter(
+                habit_progress=progress,
+                completion_date__range=[period_start, period_end],
+                status=True
+            ).count()
+
+            if completed_count >= progress.habit.target_count:
+                messages.warning(
+                    request,
+                    f'Вы уже выполнили лимит ({progress.habit.target_count} раз) за этот период. Следующий период начнется {period_end + timedelta(days=1)}.'
+                )
+                return redirect('habits:profile')
+
+            # Создаём отметку
+            completion = HabitCompletion.objects.create(
+                habit_progress=progress,
+                completion_date=completion_date,
+                status=status,
+                note=note
+            )
+
+            # Обновляем серию (по отметкам)
+            progress.update_streak(status)
+
+            # Проверяем предыдущий период и сбрасываем серию, если нужно
+            progress.check_and_update_streak_for_previous_period(completion_date)
+
+            # Проверяем, достигнут ли теперь лимит за текущий период
+            new_completed_count = HabitCompletion.objects.filter(
+                habit_progress=progress,
+                completion_date__range=[period_start, period_end],
+                status=True
+            ).count()
+
+            if new_completed_count >= progress.habit.target_count:
+                # Лимит достигнут - обновляем периодическую серию
+                progress.update_period_streak(completion_date)
+                messages.success(request,
+                                 f'Отлично! Вы выполнили норму ({progress.habit.target_count} раз) за этот период!')
+
+            messages.success(request, f'Отметка за {completion_date} сохранена!')
 
             return redirect('habits:profile')
     else:

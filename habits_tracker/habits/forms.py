@@ -60,7 +60,7 @@ class HabitForm(forms.ModelForm):
 
     class Meta:
         model = Habit
-        fields = ['name', 'description', 'category', 'frequency', 'weekdays']
+        fields = ['name', 'description', 'category', 'frequency', 'target_count', 'weekdays']
         labels = {
             'name': 'Название',
             'description': 'Описание',
